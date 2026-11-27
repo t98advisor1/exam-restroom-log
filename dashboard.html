@@ -378,9 +378,13 @@
   }
 
   /* ---------- 실시간 동기화 ---------- */
+  var lastRemoteJson = "";
   function applyRemote(st) {
     if (st.roster && st.roster.length) S.roster = st.roster;
-    if (st.records) S.records = st.records;
+    var json = JSON.stringify(st.records || []);
+    if (json === lastRemoteJson) return;
+    lastRemoteJson = json;
+    S.records = st.records || [];
     renderAll();
   }
   function renderSync(s) {
