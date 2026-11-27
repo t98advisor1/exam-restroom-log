@@ -25,9 +25,10 @@ button{font-family:inherit;font-size:inherit;cursor:pointer;border:0;background:
 button:disabled{cursor:not-allowed}
 :focus-visible{outline:3px solid #8db4ff;outline-offset:2px}
 
+.stickytop{position:sticky;top:0;z-index:40}
 /* ---------- top bar ---------- */
 .topbar{
-  position:sticky;top:0;z-index:40;background:linear-gradient(180deg,#12306b,#0f2b63);color:#fff;
+  background:linear-gradient(180deg,#12306b,#0f2b63);color:#fff;
   border-bottom:1px solid rgba(255,255,255,.12);
 }
 .topbar-in{max-width:1440px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -52,7 +53,7 @@ button:disabled{cursor:not-allowed}
 .tbtn.dangerous:hover{background:rgba(255,120,110,.3)}
 
 /* ---------- zone bar ---------- */
-.zonebar{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 2px 8px rgba(16,32,64,.04)}
+.zonebar{background:#fff;border-bottom:1px solid var(--line);box-shadow:0 2px 8px rgba(16,32,64,.04)}
 .zonebar-in{max-width:1440px;margin:0 auto;padding:9px 16px;display:flex;align-items:center;gap:10px}
 .zones{display:flex;gap:7px;flex:1;overflow-x:auto;scrollbar-width:none;padding:2px}
 .zones::-webkit-scrollbar{display:none}
@@ -73,6 +74,8 @@ button:disabled{cursor:not-allowed}
 .zbtn.warn{border-color:#f3c78a;background:#fff7e8}
 .zbtn.warn .cnt{background:#c92a21;color:#fff}
 .zbtn.on.warn{background:#b3261e;border-color:#b3261e;box-shadow:0 6px 14px rgba(179,38,30,.3)}
+.zbtn:disabled{opacity:1;cursor:not-allowed}
+.zbtn:disabled:not(.on){opacity:.55}
 .lockbtn{
   flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;min-height:46px;padding:0 14px;border-radius:12px;
   background:#f4f7fc;border:1.5px solid var(--line);font-weight:800;font-size:13.5px;color:var(--ink2)
@@ -93,6 +96,17 @@ main{max-width:1440px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:14px
 #cardLogs{grid-column:span 12}
 @media (max-width:1080px){
   #cardSearch,#cardUsing{grid-column:span 12}
+}
+
+@media (max-width:640px){
+  .topbar-in{padding:8px 12px;gap:8px}
+  .brand h1{font-size:16px}
+  .brand .logo{width:36px;height:36px;font-size:19px}
+  .clock b{font-size:16px}
+  .clock span{display:none}
+  .tbtn{padding:0 11px;font-size:12.5px;min-height:38px}
+  .zonelabel{display:none}
+  .lockbtn{padding:0 11px;font-size:12.5px}
 }
 
 /* ---------- banner ---------- */
@@ -211,6 +225,7 @@ main{max-width:1440px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:14px
 .stat .k{font-size:12px;font-weight:800;color:#6d7c95;letter-spacing:.01em}
 .stat .v{font-size:27px;font-weight:800;letter-spacing:-.03em;line-height:1.15;margin-top:3px;font-variant-numeric:tabular-nums}
 .stat .v small{font-size:13px;font-weight:800;color:#6d7c95;margin-left:2px}
+#sAvg{font-size:21px;white-space:nowrap}
 .stat.hot{border-color:#f3c1bb;background:#fff7f6}
 .stat.hot .v{color:var(--danger)}
 .charts{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;padding:12px 16px 16px}
@@ -241,8 +256,7 @@ main{max-width:1440px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:14px
 .row .mono{font-variant-numeric:tabular-nums;font-weight:700;color:#3f4f6b;font-size:13.5px}
 .row .dur{font-weight:800;color:#2b3d5c;font-variant-numeric:tabular-nums}
 .row .dur.over5{color:var(--danger)}
-.row .dur.over5::after{content:" ⏱";font-size:11px}
-.row .act{display:flex;justify-content:flex-end;align-items:center;gap:6px;flex-wrap:wrap}
+.row .dur.over5::after{content:" ⏱";font-size:11px}.row .act{display:flex;justify-content:flex-end;align-items:center;gap:6px;flex-wrap:wrap}
 .row .k{display:none}
 @media (max-width:820px){
   .row{grid-template-columns:1fr 1fr;row-gap:7px;padding:12px 14px}
@@ -253,6 +267,8 @@ main{max-width:1440px;margin:0 auto;padding:14px 16px 40px;display:grid;gap:14px
 }
 .confirm-btn{min-height:36px;padding:0 11px;border-radius:9px;background:var(--accent-weak);color:var(--accent2);border:1.5px solid #c6d8fb;font-weight:800;font-size:12.5px;white-space:nowrap}
 .confirm-btn:hover{background:#d7e4ff}
+.mini-x{width:30px;height:30px;flex:0 0 auto;border-radius:8px;background:#f2f5fb;color:#93a0b6;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.mini-x:hover{background:#fdeceb;color:var(--danger)}
 .checked{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:var(--ok);background:var(--ok-weak);padding:4px 9px;border-radius:8px;white-space:nowrap}
 
 input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration{-webkit-appearance:none;display:none}
@@ -309,6 +325,7 @@ input[type=search]{-webkit-appearance:none;appearance:none}
 </head>
 <body>
 
+<div class="stickytop">
 <header class="topbar">
   <div class="topbar-in">
     <div class="brand">
@@ -333,6 +350,7 @@ input[type=search]{-webkit-appearance:none;appearance:none}
     <button class="lockbtn" id="btnLock" aria-pressed="false">🔓 위치 잠금</button>
   </div>
 </nav>
+</div>
 
 <main>
   <div class="banner hidden" id="banner" role="alert" aria-live="assertive">
@@ -410,7 +428,7 @@ input[type=search]{-webkit-appearance:none;appearance:none}
           <button data-f="sim">동시 겹침</button>
         </div>
         <button class="btn btn-soft btn-sm" id="btnConfirmAll">전체 감독교사 확인</button>
-        <button class="btn btn-ghost btn-sm" id="btnCsv">⬇ CSV 내려받기</button>
+        <button class="btn btn-ghost btn-sm" id="btnCsv">⬇ CSV (전체 위치)</button>
       </div>
     </div>
     <div class="rows" id="logs"></div>
@@ -685,7 +703,7 @@ function searchRoster(qRaw, grade, cls){
     list = list.filter(s => {
       if (isDigit){
         const d = idDigits(s);
-        return d.indexOf(digits) !== -1;
+        return d.indexOf(digits) !== -1 || idText(s).indexOf(q) !== -1;
       }
       return nameMatches(s.name, q);
     });
@@ -817,7 +835,8 @@ function renderUsing(){
     const el = now - r.inAt;
     const over = el >= 5 * 60 * 1000;
     return '<article class="uitem' + (sim.length ? " sim" : "") + '" data-id="' + r.id + '" data-since="' + r.inAt + '" data-over="' + (over ? 1 : 0) + '">' +
-      '<div class="top"><div style="flex:1;min-width:0"><span class="nm">' + esc(r.name) + '</span><span class="sid">' + esc(r.sid) + '</span></div></div>' +
+      '<div class="top"><div style="flex:1;min-width:0"><span class="nm">' + esc(r.name) + '</span><span class="sid">' + esc(r.sid) + '</span></div>' +
+        '<button class="mini-x" data-cancel="' + r.id + '" aria-label="입실 취소" title="입실 취소 (잘못 입력한 경우)">✕</button></div>' +
       '<div class="times">입실 <b>' + fmtTime(r.inAt) + '</b></div>' +
       '<div class="badges">' +
         (sim.length ? '<span class="chip warn">⚠️ 동시 체류 ' + (sim.length + 1) + '명</span>' : "") +
@@ -924,6 +943,7 @@ function renderLogs(){
       '<div class="act">' + (r.checkedAt
         ? '<span class="checked">✓ 확인 완료 ' + fmtTime(r.checkedAt) + '</span>'
         : '<button class="confirm-btn" data-confirm="' + r.id + '">감독교사 확인</button>') +
+        '<button class="mini-x" data-del="' + r.id + '" aria-label="기록 삭제" title="기록 삭제">✕</button>' +
       '</div></div>';
   }).join("");
   wrap.innerHTML = head + body;
@@ -1071,7 +1091,7 @@ function csvCell(v){
 function buildCSV(scopeAll){
   const rows = S.records.filter(r => scopeAll || r.zone === S.zone)
     .slice().sort((a,b) => a.inAt - b.inAt);
-  const head = ["번호","이름","학번","학년","반","번호(석차)","화장실","입실시각","퇴실시각","체류(초)","체류(표시)","동시체류","감독교사확인시각","상태"];
+  const head = ["번호","이름","학번","학년","반","출석번호","화장실","입실시각","퇴실시각","체류(초)","체류(표시)","동시체류","감독교사확인시각","상태"];
   const lines = [head.map(csvCell).join(",")];
   rows.forEach((r, i) => {
     const sim = simPartners(r).length > 0;
@@ -1215,11 +1235,8 @@ async function fetchSheet(){
     if (/^\s*<(!doctype|html)/i.test(text)) throw new Error("CSV가 아닌 HTML 페이지가 왔습니다");
     const list = parseRosterText(text);
     if (!list.length) throw new Error("학생 행을 찾지 못했습니다");
-    S.roster = list; saveRoster();
-    $("#setRosterInfo").textContent = S.roster.length + "명";
-    refreshFilters();
-    renderAll();
-    setSetMsg("✅ " + list.length + "명을 시트에서 불러왔습니다. (아래 [적용]을 누르면 저장됩니다)", "ok");
+    $("#setPaste").value = text;
+    setSetMsg("✅ 시트에서 " + list.length + "명을 읽었습니다. 아래 [적용]을 누르면 명렬표가 바뀝니다.", "ok");
   } catch(e){
     setSetMsg("시트를 직접 읽지 못했습니다 (" + esc(e.message) + ").<br>" +
       "브라우저 보안(CORS) 때문인 경우가 많습니다. <b>시트에서 표를 복사해 위 칸에 붙여넣기</b>하거나, " +
@@ -1310,12 +1327,32 @@ function wire(){
 
   // using list
   $("#usingList").addEventListener("click", e => {
+    const x = e.target.closest("[data-cancel]");
+    if (x){
+      const r = S.records.find(v => v.id === x.getAttribute("data-cancel"));
+      if (r && confirm(r.name + " 학생의 입실 기록을 취소할까요?\n(잘못 선택한 경우에만 사용하세요)")){
+        S.records = S.records.filter(v => v.id !== r.id);
+        saveRecords(); renderAll();
+        toast("입실 기록을 취소했습니다", "warn");
+      }
+      return;
+    }
     const b = e.target.closest("[data-exit]");
     if (b) doCheckOut(b.getAttribute("data-exit"));
   });
 
   // logs
   $("#logs").addEventListener("click", e => {
+    const d = e.target.closest("[data-del]");
+    if (d){
+      const r = S.records.find(v => v.id === d.getAttribute("data-del"));
+      if (r && confirm(r.name + " 학생의 출입 기록을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.")){
+        S.records = S.records.filter(v => v.id !== r.id);
+        saveRecords(); renderAll();
+        toast("기록을 삭제했습니다", "warn");
+      }
+      return;
+    }
     const b = e.target.closest("[data-confirm]");
     if (b) doConfirm(b.getAttribute("data-confirm"));
   });
@@ -1359,10 +1396,18 @@ function wire(){
     if (!f) return;
     const rd = new FileReader();
     rd.onload = () => {
-      $("#setPaste").value = String(rd.result || "");
-      setSetMsg("📄 " + f.name + " 파일을 읽었습니다. [적용]을 누르면 반영됩니다.", "ok");
+      let text = "";
+      try {
+        text = new TextDecoder("utf-8").decode(rd.result);
+        if (text.indexOf("\uFFFD") >= 0){
+          try { text = new TextDecoder("euc-kr").decode(rd.result); } catch(_){}
+        }
+      } catch(_){ text = ""; }
+      const n = parseRosterText(text).length;
+      $("#setPaste").value = text;
+      setSetMsg("📄 " + esc(f.name) + " 파일을 읽었습니다" + (n ? " (" + n + "명 인식)" : " (학생 행을 찾지 못했습니다 — 형식 확인)") + ". [적용]을 누르면 반영됩니다.", n ? "ok" : "err");
     };
-    rd.readAsText(f, "utf-8");
+    rd.readAsArrayBuffer(f);
   });
   $("#setFetch").addEventListener("click", fetchSheet);
 
