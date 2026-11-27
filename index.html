@@ -1447,6 +1447,7 @@ function init(){
     if (z){ S.zone = z; }
     if (sp.get("lock") === "1"){ S.locked = true; }
   } catch(e){}
+  saveSettings();
 
   $("#examName").textContent = S.exam;
   document.title = "시험 중 화장실 출입 기록 · " + zoneName(S.zone);
