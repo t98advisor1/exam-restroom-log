@@ -69,9 +69,12 @@
    - `출입기록` 탭: `id | 학번 | 이름 | 학년 | 반 | 위치 | 입장시각 | 퇴장시각 | 상태 | 감독확인 | 확인시각 | 동시체류`
 2. 시트에서 **확장 프로그램 → Apps Script** → `Code.gs` 내용을 붙여넣고 저장
 3. **배포 → 새 배포 → 유형: 웹 앱 → 실행 계정: 나 / 액세스 권한: 모든 사용자** → `/exec` 주소 복사
-4. 대시보드 `⚙️ 설정` 의 **실시간 동기화 API 주소** 에 붙여넣고 `[연결 확인]` → `[적용]`
-   - 태블릿에는 `https://sch-exam.vercel.app/?api=<exec주소>` 로 한 번 열어 두면 그 기기에 저장됩니다
-   - 현장 화면 상단의 동기화 배지를 눌러서도 바꿀 수 있습니다
+   - 2026-11-27 배포 완료(버전 1, 설명 `sch-exam 실시간 동기화 API v1`)
+   - 배포 ID `AKfycbwfXEAK8l84cWt7Lr1ExRL_4R_ugyRh6H1TCIQTwE8omTj5bm95t9IoemjrNX6VfVowjQ`
+   - `/exec` 주소: https://script.google.com/macros/s/AKfycbwfXEAK8l84cWt7Lr1ExRL_4R_ugyRh6H1TCIQTwE8omTj5bm95t9IoemjrNX6VfVowjQ/exec
+4. `core.js` 의 `DEFAULT_API` 에 위 주소가 들어 있어 **태블릿은 주소만 열면 설정 없이 바로 동기화**됩니다.
+   - 주소를 바꾸려면 대시보드 `⚙️ 설정` 또는 현장 화면의 동기화 배지를 눌러 입력(그 기기에만 저장)
+   - `Code.gs` 를 고쳐 **재배포**했다면 `/exec` 주소는 그대로이고(같은 배포 ID `@1`~`@N` 버전 교체), 새 배포를 만들었을 때만 주소가 바뀝니다
 
 > `Code.gs`의 `SHEET_ID` 는 위 시트로 고정되어 있습니다. 새 시트를 쓰려면 그 값만 바꿔 다시 배포하세요.
 
