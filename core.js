@@ -354,7 +354,7 @@
      ========================================================================= */
   var API_KEY = "examRestroom.apiUrl.v1";
   var POLL_MS = 2500;
-  var DEFAULT_API = "";  // 배포 후 /exec 주소를 넣으면 태블릿이 설정 없이 바로 동기화됩니다.
+  var DEFAULT_API = "https://script.google.com/macros/s/AKfycbwfXEAK8l84cWt7Lr1ExRL_4R_ugyRh6H1TCIQTwE8omTj5bm95t9IoemjrNX6VfVowjQ/exec";  // 배포된 /exec 주소 — 태블릿이 설정 없이 바로 동기화됩니다.
 
   function apiUrlFromEnv() {
     var u = "";
