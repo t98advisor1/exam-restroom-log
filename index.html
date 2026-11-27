@@ -126,8 +126,9 @@
     S.roster = R.store.readRoster();
     S.records = R.store.readRecords();
   }
-  function saveRecords() { R.store.writeRecords(S.records); }
-  function saveSettings() { R.store.writeSettings({ zone: S.zone, locked: S.locked, exam: S.exam }); }
+  function saveRecords() { R.store.writeRecords(S.records); lastRaw = rawKey(); }
+  function saveSettings() { R.store.writeSettings({ zone: S.zone, locked: S.locked, exam: S.exam }); lastRaw = rawKey(); }
+  function rawKey() { var raw = R.store.raw(); return raw.rec + "|" + raw.set + "|" + raw.roster; }
 
   /* ---------- 위치 ---------- */
   function renderLoc() {
@@ -430,8 +431,7 @@
   /* ---------- 다른 탭/페이지와 동기화 ---------- */
   var lastRaw = "";
   function syncFromStorage() {
-    var raw = R.store.raw();
-    var key = raw.rec + "|" + raw.set + "|" + raw.roster;
+    var key = rawKey();
     if (key === lastRaw) return;
     lastRaw = key;
     var zoneBefore = S.zone;
@@ -523,8 +523,7 @@
       saveSettings();
     } catch (e) { }
     lastRaw = "";
-    var raw = R.store.raw();
-    lastRaw = raw.rec + "|" + raw.set + "|" + raw.roster;
+    lastRaw = rawKey();
     wire();
     renderAll();
     tick();

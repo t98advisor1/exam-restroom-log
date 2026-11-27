@@ -180,12 +180,14 @@
     S.roster = R.store.readRoster();
     S.records = R.store.readRecords();
   }
-  function saveRecords() { R.store.writeRecords(S.records); }
+  function saveRecords() { R.store.writeRecords(S.records); lastRaw = rawKey(); }
   function saveExam() {
     var set = R.store.readSettings();
     set.exam = S.exam;
     R.store.writeSettings(set);
+    lastRaw = rawKey();
   }
+  function rawKey() { var raw = R.store.raw(); return raw.rec + "|" + raw.roster + "|" + raw.set; }
 
   /* ---------- 요약 ---------- */
   function renderSummary() {
@@ -376,8 +378,7 @@
   /* ---------- 동기화 ---------- */
   var lastRaw = "";
   function syncFromStorage() {
-    var raw = R.store.raw();
-    var key = raw.rec + "|" + raw.roster + "|" + raw.set;
+    var key = rawKey();
     if (key === lastRaw) return;
     lastRaw = key;
     load();
@@ -573,8 +574,7 @@
 
   function init() {
     load();
-    var raw = R.store.raw();
-    lastRaw = raw.rec + "|" + raw.roster + "|" + raw.set;
+    lastRaw = rawKey();
     wire();
     renderAll();
     tick();
