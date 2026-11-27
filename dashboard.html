@@ -195,12 +195,19 @@
     step: 1
   };
 
-  /* 파기 실행 잠금 — 관리자 비밀번호(실수 삭제 방지용). 값은 해시로만 비교합니다. */
-  var PIN_HASH = 0x50cfb442;
-  function pinHash(s) {
-    var h = 0x811c9dc5;
-    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
-    return h >>> 0;
+  /* 파기 실행 잠금 — 관리자 비밀번호 확인(실수·임의 삭제 방지).
+     평문은 어디에도 두지 않고, 솔트가 붙은 SHA-256 다이제스트만 비교합니다. */
+  var PIN_SALT = "dce5276ed6a17b3465abc9b1c0ad6903";
+  var PIN_DIGEST = "491c52314d6c44df438f1c0f5afeffc1d4ba302f8298bf066e0400ab0f160811";
+  function sha256Hex(s) {
+    try {
+      var enc = new TextEncoder().encode(s);
+      return window.crypto.subtle.digest("SHA-256", enc).then(function (buf) {
+        var b = new Uint8Array(buf), out = "";
+        for (var i = 0; i < b.length; i++) out += (b[i] < 16 ? "0" : "") + b[i].toString(16);
+        return out;
+      });
+    } catch (e) { return Promise.reject(e); }
   }
 
   function load() {
@@ -670,7 +677,8 @@
       var name = R.downloadCSV(S.records, "파기전_");
       if (name) R.toast("⬇ CSV 내려받기 완료 · " + name, "ok");
     });
-    function pinError() {
+    function pinError(text) {
+      $("#desPinMsg").innerHTML = "<b>" + (text || "관리자 비밀번호가 올바르지 않습니다.") + "</b>";
       $("#desPinMsg").style.display = "block";
       $("#desPin").classList.add("invalid");
       try { $("#desPin").focus(); } catch (e) { }
@@ -689,8 +697,17 @@
         return;
       }
       var pin = String($("#desPin").value || "").trim();
-      if (!pin || pinHash(pin) !== PIN_HASH) { pinError(); return; }
-      doDestroy();
+      if (!pin) { pinError(); return; }
+      var btn = this;
+      btn.disabled = true;
+      sha256Hex(PIN_SALT + pin).then(function (hex) {
+        btn.disabled = false;
+        if (hex !== PIN_DIGEST) { pinError(); return; }
+        doDestroy();
+      }).catch(function () {
+        btn.disabled = false;
+        pinError("보안 확인을 실행할 수 없습니다. HTTPS로 접속해 다시 시도하세요.");
+      });
     });
     $("#desPin").addEventListener("input", function () {
       $("#desPinMsg").style.display = "none";
