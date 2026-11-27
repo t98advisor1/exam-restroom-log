@@ -288,7 +288,7 @@
     var list = all;
     if (S.logZone) list = list.filter(function (r) { return r.zone === S.logZone; });
     if (S.logFilter === "todo") list = list.filter(function (r) { return r.outAt && !r.checkedAt; });
-    else if (S.logFilter === "over") list = list.filter(function (r) { return r.outAt && (r.outAt - r.inAt) >= 5 * 60 * 1000; });
+    else if (S.logFilter === "over") list = list.filter(function (r) { return ((r.outAt || Date.now()) - r.inAt) >= 5 * 60 * 1000; });
     else if (S.logFilter === "sim") list = list.filter(function (r) { return R.simPartners(S.records, r).length > 0; });
 
     $("#logCount").textContent = list.length + "건" + (S.logZone ? " · " + R.zoneName(S.logZone) : "");
@@ -306,9 +306,10 @@
 
     var head = '<div class="row head"><div>학생</div><div>장소</div><div>입장</div><div>퇴장</div><div>체류</div><div style="text-align:right">감독교사 확인</div></div>';
     var body = list.map(function (r) {
-      var d = r.outAt ? r.outAt - r.inAt : 0;
+      var end = r.outAt || Date.now();
+      var d = end - r.inAt;
       var sim = R.simPartners(S.records, r).length > 0;
-      var over = r.outAt && d >= 5 * 60 * 1000;
+      var over = d >= 5 * 60 * 1000;
       var z = R.zone(r.zone);
       var zTag = z && z.kind === "nurse" ? '<span class="chip nurse">🏥</span>' : "";
       return '<div class="row rec">' +
@@ -317,7 +318,7 @@
         '<div class="cell"><span class="k">장소</span><span class="mono">' + R.zoneName(r.zone) + ' ' + zTag + '</span></div>' +
         '<div class="cell"><span class="k">입장</span><span class="mono">' + R.fmtTime(r.inAt) + '</span></div>' +
         '<div class="cell"><span class="k">퇴장</span><span class="mono">' + (r.outAt ? R.fmtTime(r.outAt) : "이용 중") + '</span></div>' +
-        '<div class="cell"><span class="k">체류</span><span class="dur' + (over ? " over5" : "") + '">' + (r.outAt ? R.durShort(d) : "–") + '</span></div>' +
+        '<div class="cell"><span class="k">체류</span><span class="dur' + (over ? " over5" : "") + '"' + (r.outAt ? "" : ' data-live="' + r.inAt + '"') + '>' + R.durShort(d) + '</span></div>' +
         '<div class="act">' + (r.checkedAt
           ? '<span class="checked">✓ 확인 ' + R.fmtTime(r.checkedAt) + '</span>'
           : (r.outAt ? '<button class="confirm-btn" data-confirm="' + r.id + '">감독교사 확인</button>' : '<span class="chip">이용 중</span>')) +
@@ -373,6 +374,11 @@
     var d = new Date();
     $("#clock").textContent = R.pad(d.getHours()) + ":" + R.pad(d.getMinutes()) + ":" + R.pad(d.getSeconds());
     $("#today").textContent = R.dateLabel();
+    var now = Date.now();
+    $$('#logs [data-live]').forEach(function (el) {
+      var t = Number(el.getAttribute("data-live"));
+      if (t) el.textContent = R.durShort(now - t);
+    });
   }
 
   /* ---------- 동기화 ---------- */
