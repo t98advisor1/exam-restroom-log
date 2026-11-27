@@ -1096,7 +1096,7 @@ function buildCSV(scopeAll){
   const lines = [head.map(csvCell).join(",")];
   rows.forEach((r, i) => {
     const sim = simPartners(r).length > 0;
-    const d = r.outAt ? Math.round((r.outAt - r.inAt) / 1000) : "";
+    const d = r.outAt ? Math.floor((r.outAt - r.inAt) / 1000) : "";
     lines.push([
       i + 1, r.name, r.sid, r.grade || "", r.cls || "", r.num || "", zoneName(r.zone),
       fmtTime(r.inAt), r.outAt ? fmtTime(r.outAt) : "", d,
