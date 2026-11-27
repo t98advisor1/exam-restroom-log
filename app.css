@@ -253,6 +253,7 @@ select.sel-sm{height:38px;border-radius:10px;border:1.5px solid var(--line);back
 .field label{font-size:12.5px;font-weight:800;color:#4a5b78}
 .field input[type=text],.field input[type=url],.field input[type=password],.field textarea{width:100%;border:1.5px solid #d6e0ef;border-radius:11px;padding:10px 12px;font-family:inherit;font-size:14.5px;font-weight:600;color:var(--ink);background:#fbfdff}
 .field input[type=password]{letter-spacing:.28em;font-size:17px}
+.field input[type=password]::placeholder{letter-spacing:normal;font-size:14px}
 .field input.invalid{border-color:#e0524a;background:#fff7f6}
 .field textarea{min-height:124px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.5}
 .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(28,86,214,.12)}
