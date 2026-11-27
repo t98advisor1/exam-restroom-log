@@ -310,7 +310,8 @@
       var ms = now - r.inAt;
       var over = ms >= 5 * 60 * 1000;
       var cls = "uitem" + (simActive.length ? " sim" : "") + (R.isNurse(r.zone) ? " nurse" : "");
-      var names = sim.map(function (p) { return p.name; });
+      var names = [];
+      sim.forEach(function (p) { if (names.indexOf(p.name) < 0) names.push(p.name); });
       var simTag = simActive.length
         ? '<span class="chip warn">⚠️ 동시 체류 (' + R.esc(names.join(", ")) + ')</span>'
         : (sim.length ? '<span class="chip dim">동시 체류 이력 (' + R.esc(names.join(", ")) + ')</span>' : "");
