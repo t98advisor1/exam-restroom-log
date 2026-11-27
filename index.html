@@ -245,6 +245,11 @@
     });
     renderSel();
     try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { }
+    var panel = $("#sel");
+    if (panel && !panel.hidden && panel.scrollIntoView) {
+      var r = panel.getBoundingClientRect();
+      if (r.bottom > window.innerHeight - 12) panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
   }
 
   function renderSel() {
@@ -301,9 +306,14 @@
     var now = Date.now();
     wrap.innerHTML = list.map(function (r) {
       var sim = R.simPartners(S.records, r);
+      var simActive = sim.filter(function (p) { return !p.outAt; });
       var ms = now - r.inAt;
       var over = ms >= 5 * 60 * 1000;
-      var cls = "uitem" + (sim.length ? " sim" : "") + (R.isNurse(r.zone) ? " nurse" : "");
+      var cls = "uitem" + (simActive.length ? " sim" : "") + (R.isNurse(r.zone) ? " nurse" : "");
+      var names = sim.map(function (p) { return p.name; });
+      var simTag = simActive.length
+        ? '<span class="chip warn">⚠️ 동시 체류 (' + R.esc(names.join(", ")) + ')</span>'
+        : (sim.length ? '<span class="chip dim">동시 체류 이력 (' + R.esc(names.join(", ")) + ')</span>' : "");
       return '<article class="' + cls + '" data-id="' + r.id + '" data-since="' + r.inAt + '" data-over="' + (over ? 1 : 0) + '">' +
         '<div class="u-top"><div style="flex:1;min-width:0">' +
           '<span class="u-name">' + R.esc(r.name) + '</span><span class="u-sid">' + R.esc(r.sid) + '</span>' +
@@ -311,7 +321,7 @@
         '<button class="mini-x" data-cancel="' + r.id + '" aria-label="입장 취소" title="입장 취소 (오입력 정정)">✕</button></div>' +
         '<div class="u-times">입장 <b>' + R.fmtTime(r.inAt) + '</b></div>' +
         '<div class="u-badges">' +
-          (sim.length ? '<span class="chip warn">⚠️ 동시 체류 ' + (sim.length + 1) + '명</span>' : "") +
+          simTag +
           (R.isNurse(r.zone) ? '<span class="chip nurse">🏥 보건실</span>' : "") +
           '<span class="chip over">⏱ 5분 이상</span>' +
         '</div>' +
@@ -357,7 +367,7 @@
     }
     wrap.innerHTML = todo.slice(0, 8).map(function (r) {
       return '<div class="citem">' +
-        '<div class="who"><span class="nm">' + R.esc(r.name) + '</span><span class="sid">' + R.esc(r.sid) + '</span>' +
+        '<div class="who"><span class="nm">' + R.esc(r.name) + '</span> <span class="sid">' + R.esc(r.sid) + '</span>' +
         '<div class="meta">' + R.fmtTime(r.inAt) + ' 입장 → ' + R.fmtTime(r.outAt) + ' 퇴장 · ' + R.durShort(r.outAt - r.inAt) + '</div></div>' +
         '<button class="confirm-btn" data-confirm="' + r.id + '">감독교사 확인</button></div>';
     }).join("") + (todo.length > 8 ? '<div class="empty" style="padding:10px;font-size:12px">외 ' + (todo.length - 8) + '건 — 고사본부 대시보드에서 일괄 확인할 수 있습니다</div>' : "");
