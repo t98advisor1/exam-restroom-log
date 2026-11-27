@@ -27,7 +27,7 @@
 
 <div class="locbar">
   <div class="locbar-in">
-    <span class="chip dim" id="liveChip">● 실시간 갱신</span>
+    <button class="chip dim" id="syncChip" type="button" title="구글 시트 실시간 동기화 상태">🟡 동기화 확인 중</button>
     <span class="sub" id="scopeNote" style="font-size:12px;color:#74819a;font-weight:700">화장실 8곳 + 보건실 · 이 기기 저장 기록 기준</span>
     <a class="hqlink" href="index.html" title="현장용 화면 열기">현장용 화면 ⟶</a>
   </div>
@@ -85,7 +85,7 @@
     <div class="rows" id="logs"></div>
   </section>
 
-  <div class="note">
+  <div class="note" id="syncNote">
     <b>저장·연동 안내</b> — 현장용(<b>index.html</b>)과 이 대시보드는 <b>같은 브라우저의 localStorage</b>를 공유합니다.
     같은 기기에서 두 화면을 함께 띄우면 1~2초 안에 서로 갱신됩니다.
     화장실 태블릿 8대처럼 <b>다른 기기</b>의 기록은 아직 자동으로 모이지 않으므로, 각 기기에서 <b>[⬇ CSV]</b>로 받아
@@ -94,8 +94,8 @@
   </div>
 </main>
 
-<p class="foot wide">
-  개인정보 최소 수집 · 시험 감독 목적 외 사용 금지 · 기록은 서버로 전송되지 않습니다.<br>
+<p class="foot wide" id="footNote">
+  개인정보 최소 수집 · 시험 감독 목적 외 사용 금지 · 기록은 구글 시트에만 저장됩니다.<br>
   보건실은 부정행위 감시 대상이 아니므로 동시 체류 경고에서 제외하고 일반 이용으로 집계합니다.
 </p>
 
@@ -108,6 +108,15 @@
         <label for="setExam">시험명 (두 화면 상단에 표시)</label>
         <input id="setExam" type="text" placeholder="예: 2026학년도 2학기 2차 지필평가">
       </div>
+      <div class="field">
+        <label for="setApi">실시간 동기화 API 주소 (Google Apps Script 웹앱 /exec)</label>
+        <div class="rowline">
+          <input id="setApi" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="flex:1;min-width:0;border:1.5px solid #d6e0ef;border-radius:11px;padding:10px 12px;font-family:inherit;font-size:13px;font-weight:600;background:#fbfdff">
+          <button class="btn btn-soft btn-sm" id="setApiTest" type="button">연결 확인</button>
+        </div>
+        <div class="note" id="setApiState" style="margin-top:8px">현재 상태: 확인 중…</div>
+      </div>
+      <div id="rosterEditor">
       <div class="note">
         <b>현재 명렬표 <span id="setRosterInfo">0명</span></b><br>
         엑셀·구글 시트에서 <b>학년 / 반 / 번호 / 이름</b> 열을 복사해 붙여넣거나, <b>20315 홍길동</b>처럼 학번+이름 한 줄도 됩니다.
@@ -127,6 +136,11 @@
           <input id="setUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/…" style="flex:1;min-width:0;border:1.5px solid #d6e0ef;border-radius:11px;padding:10px 12px;font-family:inherit;font-size:14px;font-weight:600;background:#fbfdff">
           <button class="btn btn-soft btn-sm" id="setFetch" type="button">불러오기</button>
         </div>
+      </div>
+      </div>
+      <div class="note" id="rosterFromSheet" style="display:none">
+        <b>명렬표는 구글 시트에서 관리됩니다.</b><br>
+        실시간 동기화가 연결되어 있어 명렬표·기록은 시트의 <b>명렬표</b>·<b>출입기록</b> 탭이 원본입니다. 명렬표를 바꾸려면 시트를 직접 수정하세요.
       </div>
       <div class="note" id="setMsg" style="display:none"></div>
     </div>
@@ -177,10 +191,10 @@
   function load() {
     var set = R.store.readSettings();
     if (set && set.exam) S.exam = String(set.exam);
-    S.roster = R.store.readRoster();
-    S.records = R.store.readRecords();
+    S.roster = R.remote.enabled() ? [] : R.store.readRoster();
+    S.records = R.remote.enabled() ? [] : R.store.readRecords();
   }
-  function saveRecords() { R.store.writeRecords(S.records); lastRaw = rawKey(); }
+  function saveRecords() { if (R.remote.enabled()) { lastRaw = rawKey(); return; } R.store.writeRecords(S.records); lastRaw = rawKey(); }
   function saveExam() {
     var set = R.store.readSettings();
     set.exam = S.exam;
@@ -334,21 +348,23 @@
     if (!r) return;
     r.checkedAt = Date.now();
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("confirm", { id: r.id, checkedAt: r.checkedAt });
     renderAll();
     R.toast("✓ " + r.name + " 감독교사 확인 완료", "ok");
   }
   function doConfirmAll() {
-    var t = Date.now(), n = 0;
+    var t = Date.now(), ids = [];
     S.records.forEach(function (r) {
       if (r.outAt && !r.checkedAt) {
         if (S.logZone && r.zone !== S.logZone) return;
-        r.checkedAt = t; n++;
+        r.checkedAt = t; ids.push(r.id);
       }
     });
-    if (!n) { R.toast("확인할 기록이 없습니다"); return; }
+    if (!ids.length) { R.toast("확인할 기록이 없습니다"); return; }
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("confirmAll", { ids: ids, checkedAt: t });
     renderAll();
-    R.toast("✓ " + (S.logZone ? R.zoneName(S.logZone) + " " : "전체 ") + "기록 " + n + "건 확인 완료", "ok");
+    R.toast("✓ " + (S.logZone ? R.zoneName(S.logZone) + " " : "전체 ") + "기록 " + ids.length + "건 확인 완료", "ok");
   }
   function doDelete(id) {
     var r = S.records.find(function (x) { return x.id === id; });
@@ -356,8 +372,37 @@
     if (!confirm(r.name + " 학생의 출입 기록을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.")) return;
     S.records = S.records.filter(function (x) { return x.id !== id; });
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("delete", { id: id });
     renderAll();
     R.toast("기록을 삭제했습니다", "warn");
+  }
+
+  /* ---------- 실시간 동기화 ---------- */
+  function applyRemote(st) {
+    if (st.roster && st.roster.length) S.roster = st.roster;
+    if (st.records) S.records = st.records;
+    renderAll();
+  }
+  function renderSync(s) {
+    var el = $("#syncChip");
+    if (el) {
+      el.textContent = s.label;
+      el.className = "chip " + (s.status === "ok" ? "ok" : (s.status === "off" ? "dim" : "warn"));
+      el.title = s.status === "ok" ? "구글 시트와 실시간 동기화 중" : (s.error || "동기화 미연결");
+    }
+    var note = $("#scopeNote");
+    if (note) {
+      note.textContent = "화장실 8곳 + 보건실 · " + (R.remote.enabled() ? "구글 시트 실시간 집계" : "이 기기 저장 기록 기준");
+    }
+    var sn = $("#syncNote");
+    if (sn) {
+      sn.innerHTML = R.remote.enabled()
+        ? "<b>저장·연동 안내</b> — 현장용(<b>index.html</b>) 태블릿과 이 대시보드가 <b>구글 시트</b>를 통해 <b>2~3초 간격으로 실시간 동기화</b>됩니다. " +
+          "한 화면에서 입장·퇴장·확인하면 모든 기기와 시트에 곧바로 반영됩니다(시트: 출입기록 탭 보관). " +
+          "시험이 끝나면 <b>[🗑 데이터 파기]</b>로 시트 기록을 지우세요(명렬표는 다음 시험을 위해 남길 수 있습니다)."
+        : "<b>저장·연동 안내</b> — 지금은 동기화가 꿇려 있어 <b>이 기기의 브라우저 저장소</b>에만 기록됩니다. " +
+          "[⚙ 설정]에서 API 주소를 넣으면 8개 태블릿과 이 대시보드가 구글 시트로 실시간 집계됩니다. 시험이 끝나면 <b>[🗑 데이터 파기]</b>로 삭제하세요.";
+    }
   }
 
   /* ---------- 렌더 ---------- */
@@ -401,7 +446,45 @@
     $("#setPaste").value = "";
     $("#setUrl").value = "";
     $("#setMsg").style.display = "none";
+    var api = R.apiUrlFromEnv();
+    $("#setApi").value = api;
+    var remoteOn = R.remote.enabled();
+    $("#rosterEditor").style.display = remoteOn ? "none" : "block";
+    $("#rosterFromSheet").style.display = remoteOn ? "block" : "none";
+    var st = $("#setApiState");
+    st.style.background = remoteOn ? "#f2fbf5" : "#f6f9fe";
+    st.innerHTML = remoteOn
+      ? "🟢 <b>연결됨</b> — 이 기기가 구글 시트와 실시간 동기화 중입니다.<br>" + R.esc(api)
+      : "⚠️ <b>미연결</b> — 이 기기 기록만 사용합니다. Apps Script 웹앱 주소를 넣고 [연결 확인] → [적용]을 누르세요.";
     openModal("ovSettings");
+  }
+
+  function testApi() {
+    var el = $("#setApiState");
+    var u = $("#setApi").value.trim();
+    if (!u) {
+      el.style.background = "#f6f9fe";
+      el.innerHTML = "주소가 비어 있습니다 — 비우고 [적용]하면 이 기기만 저장하는 모드가 됩니다.";
+      return;
+    }
+    el.style.background = "#f6f9fe";
+    el.textContent = "연결 확인 중…";
+    var btn = $("#setApiTest");
+    btn.disabled = true;
+    fetch(u + (u.indexOf("?") >= 0 ? "&" : "?") + "action=ping", { cache: "no-store", redirect: "follow" })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = JSON.parse(t);
+        if (!j.ok) throw new Error(j.error || "서버 오류");
+        el.style.background = "#f2fbf5";
+        el.innerHTML = "🟢 <b>연결됨</b> · 서버 시각 " + R.esc(j.serverTime || "") + " — [적용]을 누르면 이 기기가 동기화됩니다.";
+      })
+      .catch(function (e) {
+        el.style.background = "#fff7f6";
+        el.innerHTML = "🔴 <b>연결 실패</b> · " + R.esc(String((e && e.message) || e)) +
+          "<br>배포 설정(액세스: 모든 사용자)과 주소 끝의 <b>/exec</b>를 확인하세요.";
+      })
+      .then(function () { btn.disabled = false; });
   }
   function setMsg(html, kind) {
     var el = $("#setMsg");
@@ -448,6 +531,8 @@
     S.step = 1;
     var n = S.records.length;
     $("#desSummary").textContent = "기록 " + n + "건 · 명렬표 " + S.roster.length + "명";
+    var remoteOn = R.remote.enabled();
+    $("#desRoster").parentNode.style.display = remoteOn ? "none" : "flex";
     $("#desStep1").style.display = "flex";
     $("#desStep2").style.display = "none";
     $("#desNext").textContent = n ? "다음" : "파기 실행";
@@ -456,14 +541,17 @@
     openModal("ovDestroy");
   }
   function doDestroy() {
-    var withRoster = $("#desRoster").checked;
+    var withRoster = !R.remote.enabled() && $("#desRoster").checked;
     S.records = [];
     R.store.clearRecords();
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("clearAll", {});
     if (withRoster) S.roster = R.store.resetRoster();
     closeModal("ovDestroy");
     renderAll();
-    R.toast("🗑 기록을 모두 파기했습니다" + (withRoster ? " (명렬표 포함)" : ""), "ok");
+    R.toast(R.remote.enabled()
+      ? "🗑 구글 시트의 출입기록을 모두 파기했습니다 (명렬표는 유지)"
+      : "🗑 기록을 모두 파기했습니다" + (withRoster ? " (명렬표 포함)" : ""), "ok");
   }
 
   /* ---------- 이벤트 ---------- */
@@ -505,7 +593,17 @@
     });
 
     $("#btnSettings").addEventListener("click", openSettings);
+    $("#setApiTest").addEventListener("click", testApi);
     $("#setApply").addEventListener("click", function () {
+      var before = R.apiUrlFromEnv();
+      var api = $("#setApi").value.trim();
+      if (api !== before) {
+        R.apiSetUrl(api);
+        closeModal("ovSettings");
+        R.toast(api ? "🔄 동기화 주소를 저장했습니다 — 화면을 새로 고칩니다" : "동기화를 해제했습니다 — 이 기기 저장 모드", api ? "ok" : "warn");
+        setTimeout(function () { location.reload(); }, 700);
+        return;
+      }
       var txt = $("#setPaste").value.trim();
       if (txt) {
         var list = R.parseRosterText(txt);
@@ -579,6 +677,7 @@
   }
 
   function init() {
+    R.remote.init(applyRemote, renderSync);
     load();
     lastRaw = rawKey();
     wire();

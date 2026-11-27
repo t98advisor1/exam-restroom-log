@@ -108,6 +108,7 @@
   /* ---------- 학번 ---------- */
   function idText(s) {
     if (!s) return "";
+    if (s.sid) return String(s.sid);
     if (s.cls && s.num) return (s.grade ? s.grade + "-" : "") + s.cls + "-" + s.num;
     if (s.num) return String(s.num) + "번";
     return "학번 없음";
@@ -118,7 +119,20 @@
     if (s.grade) d += String(s.grade);
     if (s.cls) d += pad(s.cls);
     if (s.num) d += pad(s.num);
-    return d;
+    if (d) return d;
+    return String(s.sid || "").replace(/[^0-9]/g, "");
+  }
+  /* 학번 검색용 후보들 — 20115 / 2115 / 115 / 1-15 모두 걸리도록 */
+  function idVariants(s) {
+    var out = [], raw = "", padded = "";
+    if (s.grade) { raw += String(s.grade); padded += String(s.grade); }
+    if (s.cls) { raw += String(s.cls); padded += pad(s.cls); }
+    if (s.num) { raw += String(s.num); padded += pad(s.num); }
+    if (padded) out.push(padded);
+    if (raw && raw !== padded) out.push(raw);
+    if (s.sid) out.push(String(s.sid));
+    if (s.cls && s.num) out.push(pad(s.cls) + pad(s.num), s.cls + "-" + s.num);
+    return out;
   }
   function sameStudent(a, b) { return !!a && !!b && a.name === b.name && idText(a) === idText(b); }
 
@@ -130,8 +144,8 @@
     var digitQuery = /^[0-9-]+$/.test(q) && digits.length > 0;
     var list = (roster || []).filter(function (s) {
       if (digitQuery) {
-        var d = idDigits(s);
-        return d.indexOf(digits) !== -1 || idText(s).replace(/-/g, "").indexOf(digits) !== -1;
+        var vars = idVariants(s).concat([idText(s).replace(/[^0-9]/g, "")]);
+        return vars.some(function (v) { return v && v.indexOf(digits) !== -1; });
       }
       return nameMatches(s.name, q);
     });
@@ -331,6 +345,162 @@
     return name;
   }
 
+  /* =========================================================================
+     실시간 동기화 — Google Apps Script 웹앱(Code.gs)과 통신합니다.
+     · GET  ?action=data&rv=<명렬표버전>  → 기록/명렬표
+     · POST body=JSON (text/plain)       → enter/exit/confirm/confirmAll/delete/clearAll
+     · 서버가 진실이고, 화면은 먼저 반영(optimistic)한 뒤 서버 응답으로 맞춥니다.
+     · 실패한 쓰기는 순서대로 최대 5회 재전송합니다(요청에 id 가 있어 중복이 생기지 않음).
+     ========================================================================= */
+  var API_KEY = "examRestroom.apiUrl.v1";
+  var POLL_MS = 2500;
+  var DEFAULT_API = "";  // 배포 후 /exec 주소를 넣으면 태블릿이 설정 없이 바로 동기화됩니다.
+
+  function apiUrlFromEnv() {
+    var u = "";
+    try { u = new URLSearchParams(location.search).get("api") || ""; } catch (e) { }
+    if (!u) u = lsGet(API_KEY) || "";
+    if (!u) u = DEFAULT_API || "";
+    return String(u).trim();
+  }
+  function apiSetUrl(u) { lsSet(API_KEY, String(u || "").trim()); }
+
+  function apiReq(method, params, body) {
+    var base = remote.url;
+    if (!/^https?:\/\//.test(base)) return Promise.reject(new Error("API 주소가 없습니다"));
+    var opt = { method: method, cache: "no-store", redirect: "follow" };
+    var url = base;
+    if (method === "GET") {
+      var qs = Object.keys(params || {}).map(function (k) {
+        return encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
+      }).join("&");
+      if (qs) url += (base.indexOf("?") >= 0 ? "&" : "?") + qs;
+    } else {
+      opt.headers = { "Content-Type": "text/plain;charset=utf-8" };
+      opt.body = JSON.stringify(body || {});
+    }
+    return fetch(url, opt).then(function (res) {
+      return res.text().then(function (text) {
+        var j;
+        try { j = JSON.parse(text); }
+        catch (e) { throw new Error("서버 응답을 읽지 못했습니다 (HTTP " + res.status + ")"); }
+        if (!j || j.ok !== true) throw new Error((j && j.error) || "서버 오류");
+        return j;
+      });
+    });
+  }
+
+  function errMsg(e) {
+    var m = String((e && e.message) || e || "알 수 없는 오류");
+    if (/Failed to fetch|Load failed|NetworkError/i.test(m)) return "네트워크 오류";
+    return m;
+  }
+
+  var remote = {
+    url: "", on: false, error: "", syncedAt: 0, inflight: false, busy: false,
+    rosterVersion: "", queue: [], timer: null, onState: null, listener: null, lastStatus: "",
+
+    enabled: function () { return this.on; },
+
+    init: function (onState, listener) {
+      var u = apiUrlFromEnv();
+      if (u) apiSetUrl(u);
+      this.url = u;
+      this.on = /^https?:\/\//.test(u);
+      this.onState = onState || function () { };
+      this.listener = listener || function () { };
+      if (this.on) {
+        this.pull();
+        if (!this.timer) {
+          this.timer = setInterval(function () { remote.flush(); remote.pull(); }, POLL_MS);
+        }
+      }
+      this.emit();
+      return this.on;
+    },
+
+    status: function () {
+      if (!this.on) return "off";
+      return this.error ? "err" : (this.syncedAt ? "ok" : "wait");
+    },
+
+    label: function () {
+      var st = this.status();
+      if (st === "off") return "⚠️ 동기화 미연결 — 설정에서 API URL 입력";
+      if (st === "err") return "🔴 동기화 오류 — 재시도 중";
+      if (st === "wait") return "🟡 동기화 연결 중…";
+      return "🟢 실시간 동기화" + (this.queue.length ? " · " + this.queue.length + "건 대기" : "");
+    },
+
+    emit: function () {
+      var st = this.status();
+      try { this.listener({ status: st, label: this.label(), error: this.error, syncedAt: this.syncedAt, pending: this.queue.length }); } catch (e) { }
+      if (st === "err" && this.lastStatus !== "err") toast("⚠️ 동기화 오류 · " + this.error, "warn");
+      if (st === "ok" && this.lastStatus === "err") toast("🟢 동기화가 복구되었습니다", "ok");
+      this.lastStatus = st;
+    },
+
+    pull: function () {
+      if (!this.on || this.inflight || this.busy || this.queue.length) return;
+      var self = this;
+      self.inflight = true;
+      apiReq("GET", { action: "data", rv: self.rosterVersion || "" })
+        .then(function (j) {
+          self.inflight = false;
+          self.error = "";
+          self.syncedAt = Date.now();
+          if (j.roster) self.rosterVersion = j.rosterVersion || "";
+          if (self.queue.length || self.busy) return;
+          self.onState({ roster: j.roster || null, records: j.records || [], serverTime: j.serverTime });
+          self.emit();
+        })
+        .catch(function (e) {
+          self.inflight = false;
+          self.error = errMsg(e);
+          self.emit();
+        });
+    },
+
+    push: function (action, payload) {
+      if (!this.on) return false;
+      this.queue.push({ action: action, payload: payload || {}, tries: 0 });
+      this.emit();
+      this.flush();
+      return true;
+    },
+
+    flush: function () {
+      if (!this.on || this.busy || !this.queue.length) return;
+      var self = this, job = this.queue[0];
+      this.busy = true;
+      this.emit();
+      apiReq("POST", null, Object.assign({ action: job.action }, job.payload))
+        .then(function (j) {
+          self.queue.shift();
+          self.busy = false;
+          self.error = "";
+          self.syncedAt = Date.now();
+          if (j.roster) self.rosterVersion = j.rosterVersion || "";
+          if (!self.queue.length) {
+            self.onState({ roster: j.roster || null, records: j.records || [], serverTime: j.serverTime });
+          }
+          self.emit();
+          self.flush();
+        })
+        .catch(function (e) {
+          self.busy = false;
+          job.tries++;
+          self.error = errMsg(e);
+          if (job.tries >= 5) {
+            self.queue.shift();
+            toast("❌ 저장 실패 · " + (job.action === "enter" ? "입장" : job.action) + " 기록을 서버에 보내지 못했습니다. 다시 시도해 주세요", "err");
+          }
+          self.emit();
+          if (job.tries < 5) setTimeout(function () { self.flush(); }, Math.min(1500 * job.tries, 6000));
+        });
+    }
+  };
+
   /* ---------- 공용 DOM helpers ---------- */
   function $(sel, root) { return (root || document).querySelector(sel); }
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -358,6 +528,7 @@
     activeRecords: activeRecords, overlaps: overlaps, simPartners: simPartners, simPairs: simPairs, avgDuration: avgDuration,
     buildDefaultRoster: buildDefaultRoster, parseRosterText: parseRosterText,
     buildCSV: buildCSV, downloadCSV: downloadCSV,
-    store: store, $: $, $$: $$, toast: toast, newRecordId: newRecordId
+    store: store, $: $, $$: $$, toast: toast, newRecordId: newRecordId,
+    remote: remote, apiSetUrl: apiSetUrl, apiUrlFromEnv: apiUrlFromEnv, idVariants: idVariants
   };
 })(window);

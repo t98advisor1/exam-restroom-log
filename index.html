@@ -31,6 +31,7 @@
       <span class="chg" id="locChg">변경</span>
     </button>
     <button class="lock" id="btnLock" aria-pressed="false">🔒 위치 잠금</button>
+    <button class="chip dim" id="syncChip" type="button" title="구글 시트 실시간 동기화 상태 — 눌러서 API 주소를 바꿀 수 있습니다">🟡 동기화 확인 중</button>
     <a class="hqlink" href="dashboard.html" title="고사본부 대시보드 열기">고사본부 ⟶</a>
   </div>
 </div>
@@ -80,8 +81,8 @@
   </section>
 </main>
 
-<p class="foot">
-  기록은 <b>이 기기의 브라우저 저장소</b>에만 남고 서버로 전송되지 않습니다.<br>
+<p class="foot" id="footNote">
+  구글 시트와 <b>실시간 동기화</b>됩니다 — 이 기기에서 입장·퇴장하면 다른 태블릿과 고사본부 화면에 2~3초 안에 반영됩니다.<br>
   관리 기능(전체 현황·그래프·명렬표·데이터 파기)은 <b>고사본부 대시보드</b>에서 사용합니다.
 </p>
 
@@ -123,10 +124,10 @@
     if (set && set.exam) S.exam = String(set.exam);
     if (set && set.zone && R.zone(set.zone)) S.zone = set.zone;
     S.locked = !!(set && set.locked);
-    S.roster = R.store.readRoster();
-    S.records = R.store.readRecords();
+    S.roster = R.remote.enabled() ? [] : R.store.readRoster();
+    S.records = R.remote.enabled() ? [] : R.store.readRecords();
   }
-  function saveRecords() { R.store.writeRecords(S.records); lastRaw = rawKey(); }
+  function saveRecords() { if (R.remote.enabled()) { lastRaw = rawKey(); return; } R.store.writeRecords(S.records); lastRaw = rawKey(); }
   function saveSettings() { R.store.writeSettings({ zone: S.zone, locked: S.locked, exam: S.exam }); lastRaw = rawKey(); }
   function rawKey() { var raw = R.store.raw(); return raw.rec + "|" + raw.set + "|" + raw.roster; }
 
@@ -284,6 +285,7 @@
     };
     S.records.push(rec);
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("enter", rec);
     resetSearch();
     renderAll();
     try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) { }
@@ -337,6 +339,7 @@
     if (!r || r.outAt) return;
     r.outAt = Date.now();
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("exit", { id: r.id, outAt: r.outAt });
     renderAll();
     var over = (r.outAt - r.inAt) >= 5 * 60 * 1000;
     R.toast("🚪 " + r.name + " 퇴장 " + R.fmtTime(r.outAt) + " · 체류 " + R.durShort(r.outAt - r.inAt) + (over ? " (5분 이상)" : ""), over ? "warn" : "");
@@ -348,6 +351,7 @@
     if (!confirm(r.name + " 학생의 입장 기록을 취소할까요?\n(잘못 선택한 경우에만 사용하세요)")) return;
     S.records = S.records.filter(function (x) { return x.id !== id; });
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("delete", { id: id });
     renderAll();
     R.toast("입장 기록을 취소했습니다", "warn");
   }
@@ -379,18 +383,20 @@
     if (!r) return;
     r.checkedAt = Date.now();
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("confirm", { id: r.id, checkedAt: r.checkedAt });
     renderAll();
     R.toast("✓ " + r.name + " 감독교사 확인 완료 " + R.fmtTime(r.checkedAt), "ok");
   }
   function doConfirmAll() {
-    var t = Date.now(), n = 0;
+    var t = Date.now(), ids = [];
     S.records.forEach(function (r) {
-      if (r.zone === S.zone && r.outAt && !r.checkedAt) { r.checkedAt = t; n++; }
+      if (r.zone === S.zone && r.outAt && !r.checkedAt) { r.checkedAt = t; ids.push(r.id); }
     });
-    if (!n) { R.toast("확인할 기록이 없습니다"); return; }
+    if (!ids.length) { R.toast("확인할 기록이 없습니다"); return; }
     saveRecords();
+    if (R.remote.enabled()) R.remote.push("confirmAll", { ids: ids, checkedAt: t });
     renderAll();
-    R.toast("✓ " + R.zoneName(S.zone) + " 기록 " + n + "건 확인 완료", "ok");
+    R.toast("✓ " + R.zoneName(S.zone) + " 기록 " + ids.length + "건 확인 완료", "ok");
   }
 
   /* ---------- 경고 배너 (화장실만) ---------- */
@@ -404,10 +410,42 @@
       list.map(function (r) { return r.name + " " + R.fmtTime(r.inAt); }).join(", ") + " · 감독교사 확인이 필요합니다.";
   }
 
+  /* ---------- 실시간 동기화 ---------- */
+  function applyRemote(st) {
+    if (st.roster && st.roster.length) S.roster = st.roster;
+    if (st.records) S.records = st.records;
+    renderAll();
+    if (S.sel) renderSel();
+  }
+  function renderSync(s) {
+    var el = $("#syncChip");
+    if (!el) return;
+    el.textContent = s.label;
+    el.className = "chip " + (s.status === "ok" ? "ok" : (s.status === "off" ? "dim" : "warn"));
+    el.title = s.status === "ok"
+      ? "구글 시트와 실시간 동기화 중 — 눌러서 API 주소 변경"
+      : (s.error || "동기화 미연결 — 눌러서 API 주소 입력");
+  }
+  function askApiUrl() {
+    var cur = R.apiUrlFromEnv();
+    var v = window.prompt("구글 시트 실시간 동기화 API 주소(Apps Script 웹앱 /exec 주소)를 입력하세요.\n비우면 이 기기에서는 동기화 없이 동작합니다.", cur || "");
+    if (v === null) return;
+    R.apiSetUrl(v.trim());
+    location.reload();
+  }
+
   /* ---------- 전체 렌더 ---------- */
   function renderAll() {
     $("#examName").textContent = S.exam;
     document.title = "화장실 출입 기록 · " + R.zoneName(S.zone);
+    var foot = $("#footNote");
+    if (foot) {
+      foot.innerHTML = R.remote.enabled()
+        ? "구글 시트와 <b>실시간 동기화</b>됩니다 — 이 기기에서 입장·퇴장하면 다른 태블릿과 고사본부 화면에 2~3초 안에 반영됩니다.<br>" +
+          "관리 기능(전체 현황·그래프·명렬표·데이터 파기)은 <b>고사본부 대시보드</b>에서 사용합니다."
+        : "이 기기의 <b>브라우저 저장소</b>에만 기록됩니다 (동기화 미연결). 상단 배지를 눌러 API 주소를 넣으면 다른 기기와 실시간으로 공유됩니다.<br>" +
+          "관리 기능(전체 현황·그래프·명렬표·데이터 파기)은 <b>고사본부 대시보드</b>에서 사용합니다.";
+    }
     renderLoc();
     renderUsing();
     renderConfirm();
@@ -453,6 +491,7 @@
 
   /* ---------- 이벤트 ---------- */
   function wire() {
+    $("#syncChip").addEventListener("click", askApiUrl);
     $("#locBadge").addEventListener("click", openZone);
     $("#zpick").addEventListener("click", function (e) {
       var b = e.target.closest("[data-zone]");
@@ -525,6 +564,7 @@
   }
 
   function init() {
+    R.remote.init(applyRemote, renderSync);
     load();
     try {
       var sp = new URLSearchParams(location.search);
@@ -536,6 +576,7 @@
     lastRaw = "";
     lastRaw = rawKey();
     wire();
+    R.remote.init(applyRemote, renderSync);
     renderAll();
     tick();
     setInterval(tick, 1000);
